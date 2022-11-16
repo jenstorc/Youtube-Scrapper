@@ -34,7 +34,7 @@ class VideoYoutube:
         self.nb_like = self.set_nbLikes(data_json)
         self.description = self.set_description(data_json)
         self.list_links = self.set_links() if self.description is not None else None
-        self.list_comments = self.set_comment(10) if self.msg_erreur is None else None
+        
 
     # Ajout du titre dans le dictionnaire
     def set_title(self, soup) -> str :
@@ -186,6 +186,7 @@ if __name__ == "__main__":
         for id_video in data['videos_id']:
             video_ytb = VideoYoutube(id_video) # Création de l'objet vidéo youtube
             if video_ytb.msg_erreur is not None : raise Exception(video_ytb.msg_erreur)
+            list_comments = video_ytb.set_comment(10) if video_ytb.msg_erreur is None else None
             final_result[id_video] = video_ytb.result # ajout du tableau résultat dans un dictionnaire regroupant toutes les informations de chaque vidéo
 
         input_file.close() # Fermeture du fichier json d'input
