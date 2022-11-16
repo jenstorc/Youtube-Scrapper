@@ -7,40 +7,38 @@ import getopt
 
 class VideoYoutube:
     id : str
-    #titre : str
-    #nom_videaste : str
-    #nb_pouce_bleu : int
-    #description_video : str
-    #list_n_premiers_com : list #list str
-    #list_liens_exceptionnels : list # list str
 
-    def __init__(self, id):
+    def __init__(self, id) -> None :
         self.id = id
-        url : str = 'https://www.youtube.com/watch?v=' + str(id) #url ytb
-        reponse : requests.models.Response = requests.get(url)
-        self.soup : BeautifulSoup = BeautifulSoup(reponse.text, "html.parser")
-        self.result : dict = {}
-        data = re.search(r"var ytInitialData = ({.*?});", self.soup.prettify()).group(1)  
-        self.data_json = json.loads(data)  
-        self.dict_res()
+        self.init_dict_res()
 
-    def dict_res(self):
-        self.set_title()
-        self.set_author()
-        self.set_nbLikes()
-        description = self.set_description()
+    # Initialisation du dictionnaire
+    def init_dict_res(self) -> None :
+        url : str = 'https://www.youtube.com/watch?v=' + str(self.id) #url ytb
+        reponse : requests.models.Response = requests.get(url)
+        soup : BeautifulSoup = BeautifulSoup(reponse.text, "html.parser")
+        self.result : dict = {}
+        data = re.search(r"var ytInitialData = ({.*?});", soup.prettify()).group(1)  
+        data_json = json.loads(data)  
+
+        self.set_title(soup)
+        self.set_author(soup)
+        self.set_nbLikes(data_json)
+        description = self.set_description(data_json)
         self.set_links(description)
 
-    def set_title(self):
-        self.result["title"] : str = self.soup.find("meta", itemprop="name")['content']
-        #self.title = self.soup.find("meta", itemprop="name")['content']
+    # Ajout du titre dans le dictionnaire
+    def set_title(self, soup) -> None :
+        self.result["title"] : str = soup.find("meta", itemprop="name")['content']
 
-    def set_author(self):
-        self.result["channel_name"] = self.soup.find("span", itemprop="author").next.next['content']  
+    # Ajout du vidéaste dans le dictionnaire
+    def set_author(self, soup) -> None :
+        self.result["channel_name"] = soup.find("span", itemprop="author").next.next['content']  
     
-    def set_nbLikes(self):
+    # Ajout du nombre de likes dans le dictionnaire
+    def set_nbLikes(self, data_json) -> None :
         # number of likes 
-        videoPrimaryInfoRenderer = self.data_json['contents']['twoColumnWatchNextResults']['results']['results']['contents'][0]['videoPrimaryInfoRenderer']
+        videoPrimaryInfoRenderer = data_json['contents']['twoColumnWatchNextResults']['results']['results']['contents'][0]['videoPrimaryInfoRenderer']
         likes_label = videoPrimaryInfoRenderer['videoActions']['menuRenderer']['topLevelButtons'][0]['segmentedLikeDislikeButtonRenderer']['likeButton']['toggleButtonRenderer']['defaultText']['accessibility']['accessibilityData']['label'] # "No likes" or "###,### likes"  
         likes_str = likes_label.split(' ')[0].replace(',','')  
         
@@ -62,8 +60,9 @@ class VideoYoutube:
 
             self.result["nb_likes"] = int(nb_like)
 
-    def set_description(self):
-        dict_tmp = self.data_json['contents']["twoColumnWatchNextResults"]["results"]["results"]["contents"][1]["videoSecondaryInfoRenderer"]["description"]["runs"]
+    # Ajout de la description dans le dictionnaire
+    def set_description(self, data_json) -> str :
+        dict_tmp = data_json['contents']["twoColumnWatchNextResults"]["results"]["results"]["contents"][1]["videoSecondaryInfoRenderer"]["description"]["runs"]
         description = ''
         for i in range(len(dict_tmp)):
             if 'text' in dict_tmp[i].keys():
@@ -72,7 +71,8 @@ class VideoYoutube:
         self.result["description"] = description
         return description
 
-    def set_links(self, description):
+    # Ajout des liens présents dans le dictionnaire
+    def set_links(self, description) -> None :
         regex = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
         url = re.findall(regex, description)      
         list_urls = [x[0] for x in url]
