@@ -16,70 +16,111 @@ class VideoYoutube:
     def init_dict_res(self) -> None :
         url : str = 'https://www.youtube.com/watch?v=' + str(self.id) #url ytb
         reponse : requests.models.Response = requests.get(url)
+        
         soup : BeautifulSoup = BeautifulSoup(reponse.text, "html.parser")
+
         self.result : dict = {}
+        self.msg_erreur = None
         data = re.search(r"var ytInitialData = ({.*?});", soup.prettify()).group(1)  
         data_json = json.loads(data)  
-
-        self.set_title(soup)
-        self.set_author(soup)
-        self.set_nbLikes(data_json)
-        description = self.set_description(data_json)
-        self.set_links(description)
+        self.title = self.set_title(soup)
+        print(self.title)
+        self.videomaker = self.set_author(soup)
+        print(self.videomaker)
+        self.nb_like = self.set_nbLikes(data_json)
+        print(self.nb_like)
+        self.description = self.set_description(data_json)
+        print(self.description)
+        self.list_links = self.set_links() if self.description is not None else None
+        print(self.list_links)
 
     # Ajout du titre dans le dictionnaire
-    def set_title(self, soup) -> None :
-        self.result["title"] : str = soup.find("meta", itemprop="name")['content']
+    def set_title(self, soup) -> str :
+        title = soup.find("meta", itemprop="name")
+        if title is not None:
+            self.result["title"] : str = title['content']
+            return self.result["title"] 
+        else : return None
 
     # Ajout du vidéaste dans le dictionnaire
-    def set_author(self, soup) -> None :
-        self.result["channel_name"] = soup.find("span", itemprop="author").next.next['content']  
+    def set_author(self, soup) -> str :
+        author = soup.find("span", itemprop="author")
+        if author is not None :
+            self.result["channel_name"] = soup.find("span", itemprop="author").next.next['content']  
+            return self.result["channel_name"] 
+        else : return None
     
     # Ajout du nombre de likes dans le dictionnaire
-    def set_nbLikes(self, data_json) -> None :
-        # number of likes 
-        videoPrimaryInfoRenderer = data_json['contents']['twoColumnWatchNextResults']['results']['results']['contents'][0]['videoPrimaryInfoRenderer']
-        likes_label = videoPrimaryInfoRenderer['videoActions']['menuRenderer']['topLevelButtons'][0]['segmentedLikeDislikeButtonRenderer']['likeButton']['toggleButtonRenderer']['defaultText']['accessibility']['accessibilityData']['label'] # "No likes" or "###,### likes"  
-        likes_str = likes_label.split(' ')[0].replace(',','')  
-        
-        if likes_str == 'No':
-            #result["likes"] = '0' 
-            self.result["nb_likes"] = 0
-        else: 
-            likes_str = likes_str.encode("ascii", "replace")
-            likes_str = likes_str.decode(encoding="utf-8", errors="ignore")
-            likes_str = likes_str.replace('?','')
+    def set_nbLikes(self, data_json) -> int :
+        # Cas où la vidéo existe
+        if 'videoPrimaryInfoRenderer' in data_json['contents']['twoColumnWatchNextResults']['results']['results']['contents'][0].keys():
+            videoPrimaryInfoRenderer = data_json['contents']['twoColumnWatchNextResults']['results']['results']['contents'][0]['videoPrimaryInfoRenderer']
+            # Cas où les like sont possibles
+            if 'accessibility' in videoPrimaryInfoRenderer['videoActions']['menuRenderer']['topLevelButtons'][0]['segmentedLikeDislikeButtonRenderer']['likeButton']['toggleButtonRenderer']['defaultText'].keys():
+                likes_label = videoPrimaryInfoRenderer['videoActions']['menuRenderer']['topLevelButtons'][0]['segmentedLikeDislikeButtonRenderer']['likeButton']['toggleButtonRenderer']['defaultText']['accessibility']['accessibilityData']['label'] # "No likes" or "###,### likes"  
+                likes_str = likes_label.split(' ')[0].replace(',','')  
+                if likes_str == 'No': self.result["nb_likes"] = 0
+                else: 
+                    likes_str = likes_str.encode("ascii", "replace").decode(encoding="utf-8", errors="ignore").replace('?','')
 
-            nb_like = ''
-            i = 0
-            car = likes_str[i]
-            while i < len(likes_str) and car.isdigit():
-                nb_like = str(nb_like) + str(car)
-                i += 1
-                car = likes_str[i]
+                    nb_like = ''
+                    i = 0
+                    car = likes_str[i]
+                    while i < len(likes_str) and car.isdigit():
+                        nb_like = str(nb_like) + str(car)
+                        i += 1
+                        car = likes_str[i]
 
-            self.result["nb_likes"] = int(nb_like)
+                    self.result["nb_likes"] = int(nb_like)
+                return self.result["nb_likes"]
+            # Cas où les likes sont bloqués (pas de like affiché)
+            return None
+        # Cas où la vidéo n'existe pas
+        else : 
+            self.msg_erreur = data_json['contents']['twoColumnWatchNextResults']['results']['results']['contents'][0]['itemSectionRenderer']['contents'][0]['backgroundPromoRenderer']['title']['runs'][0]['text']
+            return None
 
     # Ajout de la description dans le dictionnaire
     def set_description(self, data_json) -> str :
-        dict_tmp = data_json['contents']["twoColumnWatchNextResults"]["results"]["results"]["contents"][1]["videoSecondaryInfoRenderer"]["description"]["runs"]
-        description = ''
-        for i in range(len(dict_tmp)):
-            if 'text' in dict_tmp[i].keys():
-                description += dict_tmp[i]['text']
         
-        self.result["description"] = description
-        return description
+        if len(data_json['contents']["twoColumnWatchNextResults"]["results"]["results"]["contents"]) > 1:
+            dict_tmp = data_json['contents']["twoColumnWatchNextResults"]["results"]["results"]["contents"][1]["videoSecondaryInfoRenderer"]["description"]["runs"]
+            description = ''
+            for i in range(len(dict_tmp)):
+                if 'text' in dict_tmp[i].keys():
+                    description += dict_tmp[i]['text']
+            self.result["description"] = description
+            return description
+        else : return None
 
     # Ajout des liens présents dans le dictionnaire
-    def set_links(self, description) -> None :
+    def set_links(self) -> None :
         regex = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
-        url = re.findall(regex, description)      
+        url = re.findall(regex, self.description)      
         list_urls = [x[0] for x in url]
 
         #list_urls = get_urls(description) 
         if len(list_urls) != 0:
             self.result["links"] = list_urls
+            return(self.result["links"])
+        else :
+            return None
+
+def check_input_data(data : dict):
+    """ Vérifie qu'il s'agit d'un dictionnaire de chaînes de caractères
+
+    Args:
+        data (dict): dictionnaire de str
+
+    Returns:
+        str or None: élement du dictionnaire qui n'est pas une chaînes de caractères
+    """
+    for id_video in data:
+        if not(isinstance(id_video, str)): return("Erreur : Il ne s'agit pas d'un dictionnaire d'ID de vidéo.")
+        
+        response = requests.get('https://www.youtube.com/watch?v=' + str(id_video))
+        if response.status_code != 200: return("Erreur d'ID : le lien du site n'existe pas")    
+    return None
 
 if __name__ == "__main__":
     try:
@@ -106,10 +147,16 @@ if __name__ == "__main__":
         input_file = open(input) # Ouverture du fichier json        
         data = json.load(input_file) # Considérer l'objet json comme un dictionnaire
         
+        # TODO : vérifier que c'est bien un dictionnaire de str, et que les vidéos existent
+        if check_input_data(data) is not None:
+            raise Exception(check_input_data(data))
+        
+        
         # Pour chaque élément du dictionnaire json (ie, pour chaque id de vidéo)
         final_result = {}
         for id_video in data['videos_id']:
             video_ytb = VideoYoutube(id_video) # Création de l'objet vidéo youtube
+            if video_ytb.msg_erreur is not None : raise Exception(video_ytb.msg_erreur)
             final_result[id_video] = video_ytb.result # ajout du tableau résultat dans un dictionnaire regroupant toutes les informations de chaque vidéo
 
         input_file.close() # Fermeture du fichier json d'input
