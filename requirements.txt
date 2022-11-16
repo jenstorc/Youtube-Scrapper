@@ -1,0 +1,4 @@
+pandas
+pypi-json
+requests
+beautifulsoup4
