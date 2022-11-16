@@ -4,6 +4,12 @@ import requests
 from bs4 import BeautifulSoup
 import sys
 import getopt
+import time
+from selenium.webdriver import Chrome
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 class VideoYoutube:
     id : str
@@ -24,15 +30,11 @@ class VideoYoutube:
         data = re.search(r"var ytInitialData = ({.*?});", soup.prettify()).group(1)  
         data_json = json.loads(data)  
         self.title = self.set_title(soup)
-        print(self.title)
         self.videomaker = self.set_author(soup)
-        print(self.videomaker)
         self.nb_like = self.set_nbLikes(data_json)
-        print(self.nb_like)
         self.description = self.set_description(data_json)
-        print(self.description)
         self.list_links = self.set_links() if self.description is not None else None
-        print(self.list_links)
+        self.list_comments = self.set_comment(10) if self.msg_erreur is None else None
 
     # Ajout du titre dans le dictionnaire
     def set_title(self, soup) -> str :
@@ -106,6 +108,33 @@ class VideoYoutube:
         else :
             return None
 
+    # Ajout des commentaires
+    def set_comment(self, n : int) -> list :
+        url : str = 'https://www.youtube.com/watch?v=' + str(self.id) #url ytb
+        with Chrome() as driver:
+            wait = WebDriverWait(driver,10)
+            driver.get(url)
+
+            for item in range(3): # Récupèrer les commentaires
+                time.sleep(3)
+
+            # On récupère le nombre de commentaires qu'on souhaite
+            acc = 0
+            list_comment = []
+            for comment in wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "#comment #content-text"))):
+                if acc < n:
+                    list_comment.append(comment.text)
+                    acc += 1
+                else : break
+
+        # Retourner le résultat
+        if len(list_comment) != 0 : 
+            self.result["comments_list"] = list_comment.copy()
+            return list_comment
+        else :
+            None
+
+            
 def check_input_data(data : dict):
     """ Vérifie qu'il s'agit d'un dictionnaire de chaînes de caractères
 

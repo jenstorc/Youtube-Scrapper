@@ -1,7 +1,6 @@
 from scrapper import VideoYoutube
 import validators
 
-
 ## Vérification avec un ID existant
 id = "JhWZWXvN_yo"
 video_ytb_1 = VideoYoutube(id)
@@ -25,6 +24,9 @@ def test_type_links():
 def test_type_each_url():
     assert all([validators.url(mesurls) for mesurls in video_ytb_1.list_links]) # type de chaque lien de la liste (list)
 
+def test_type_comments():
+    assert isinstance(video_ytb_1.list_comments, list) # type du dictionnaire de résultat
+
 def test_type_dict():
     assert isinstance(video_ytb_1.result, dict) # type du dictionnaire de résultat
 
@@ -36,8 +38,9 @@ def test_titre():
 def test_videomaker():
     assert video_ytb_1.videomaker == "ZeratoR" # Vérifier que le nom du vidéaste concorde
 
-def test_nb_like():
-    assert video_ytb_1.nb_like == 9552 # Vérifier que le nombre de likes concorde
+# Le nombre de j'aime augmente régulièrement
+#def test_nb_like():
+#    assert video_ytb_1.nb_like == 9552 # Vérifier que le nombre de likes concorde
 
 def test_links():
     links = [
