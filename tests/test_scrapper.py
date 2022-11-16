@@ -32,7 +32,6 @@ def test_type_each_url():
 def test_type_dict():
     assert isinstance(video_ytb_1.result, dict) # type du dictionnaire de résultat
 
-
 # Vérification de la sortie
 def test_titre():
     assert video_ytb_1.title == "ELISE LUCET EST SUB CHEZ MOI ?! (Débrief Cash Investigation)" # Vérifier que le titre concorde
